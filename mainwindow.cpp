@@ -1,61 +1,52 @@
 #include "mainwindow.h"
-#include "qforeach.h"
 #include "ui_mainwindow.h"
-#include"math.h"
+#include"aboutdialog.h"
+#include"searchdialog.h"
+#include"replacedialog.h"
+#include<QFileDialog>
+#include<QMessageBox>
+#include<QTextStream>
+#include<QColorDialog>
+#include<QFontDialog>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    textchange=false;
+    on_actionNew_triggered();
+    statusLabel.setMaximumWidth(250);
+    statusLabel.setText("length"+QString::number(0)+"    lines:"+QString::number(1));
+    ui->statusbar->addPermanentWidget(&statusLabel);
 
-    digitBTNs={{Qt::Key_0,ui->btnNum0},
-             {Qt::Key_1,ui->btnNum1},
-             {Qt::Key_2,ui->btnNum2},
-             {Qt::Key_3,ui->btnNum3},
-             {Qt::Key_4,ui->btnNum4},
-             {Qt::Key_5,ui->btnNum5},
-             {Qt::Key_6,ui->btnNum6},
-             {Qt::Key_7,ui->btnNum7},
-             {Qt::Key_8,ui->btnNum8},
-             {Qt::Key_9,ui->btnNum9},
-            };
+    statusCursorLabel.setMaximumWidth(250);
+    statusCursorLabel.setText("Ln"+QString::number(0)+"    Col:"+QString::number(1));
+    ui->statusbar->addPermanentWidget(&statusCursorLabel);
 
-    foreach(auto btn ,digitBTNs)
-        connect(btn,SIGNAL(clicked()),this,SLOT(btnNumClicked()));
+    QLabel *author=new QLabel(ui->statusbar);
+    author->setText("程宇信");
+    ui->statusbar->addPermanentWidget(author);
 
-    digitBinarys={{Qt::Key_Asterisk,ui->btnMulti},
-                  {Qt::Key_Slash,ui->btnDivide},
-                  {Qt::Key_Plus,ui->btnAdd},
-                  {Qt::Key_Minus,ui->btnSub},
-                 };
+    ui->actionCopy->setEnabled(false);
+    ui->actionCut->setEnabled(false);
+    ui->actionRedo->setEnabled(false);
+    ui->actionUndo->setEnabled(false);
+    ui->actionPaste->setEnabled(false);
 
-    foreach(auto btn,digitBinarys)
-        connect(btn,SIGNAL(clicked()),this,SLOT(btnBinaryOperatorClicked()));
-    // connect(ui->btnMulti,SIGNAL(clicked()),this,SLOT(btnBinaryOperatorClicked()));
-    // connect(ui->btnDivide,SIGNAL(clicked()),this,SLOT(btnBinaryOperatorClicked()));
-    // connect(ui->btnSub,SIGNAL(clicked()),this,SLOT(btnBinaryOperatorClicked()));
-    // connect(ui->btnAdd,SIGNAL(clicked()),this,SLOT(btnBinaryOperatorClicked()));
+    QPlainTextEdit::LineWrapMode mode=ui->textEdit->lineWrapMode();
+    if(mode == QPlainTextEdit::NoWrap){
+        ui->textEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+        ui->actionLineWrap->setChecked(false);
+    }
+    else{
+        ui->textEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
+        ui->actionLineWrap->setChecked(true);
+    }
 
-    digitUnBinarys={{Qt::Key_Exclam,ui->btnF},  //键盘的！
-                    {Qt::Key_At,ui->btnSqrt},  //键盘的@
-                    {Qt::Key_AsciiCircum,ui->btnSquare}, //键盘^ 大写模式按下shift+数字键盘6
-                    {Qt::Key_Percent,ui->btnPercent},    //键盘的%
-                   };
+    ui->actionToolBar->setChecked(true);
+    ui->actionStatusBar->setChecked(true);
+    on_actionShowLineNumber_triggered(false);
 
-    foreach(auto btn,digitUnBinarys)
-        connect(btn,SIGNAL(clicked()),this,SLOT(btnUnaryOperatorClicked()));
-    // connect(ui->btnF,SIGNAL(clicked()),this,SLOT(btnUnaryOperatorClicked()));
-    // connect(ui->btnSqrt,SIGNAL(clicked()),this,SLOT(btnUnaryOperatorClicked()));
-    // connect(ui->btnSquare,SIGNAL(clicked()),this,SLOT(btnUnaryOperatorClicked()));
-    // connect(ui->btnPercent,SIGNAL(clicked()),this,SLOT(btnUnaryOperatorClicked()));
-
-    digitElse={{Qt::Key_Period,ui->btnDian},
-               {Qt::Key_Return,ui->btnC},            //字母键盘的Enter键
-               {Qt::Key_Escape,ui->btnCE},        //Esc键
-               {Qt::Key_Equal,ui->btnAddSub},     // =键
-               {Qt::Key_Enter,ui->btnAll},        //数字键盘Enter
-               {Qt::Key_Backspace,ui->btnDelete}, //Backspace键
-              };
 }
 
 MainWindow::~MainWindow()
@@ -63,200 +54,307 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-
-void MainWindow::btnNumClicked()
+void MainWindow::on_actionAbout_triggered()
 {
-    QString digit=qobject_cast<QPushButton*>(sender())->text();
-
-    if(digit=="0"&&operand=="0")
-        digit="";
-
-    if(digit!="0"&&operand=="0")
-        operand="";
-
-    operand+=digit;
-
-    ui->Display->setText(operand);
-    //ui->statusbar->showMessage( qobject_cast<QPushButton*>(sender())->text() + "btn clicked");
+    AboutDialog dig;
+    dig.exec();
 }
 
 
-
-void MainWindow::on_btnDian_clicked()
+void MainWindow::on_actionFind_triggered()
 {
-    if(!operand.contains("."))
-        operand +=  qobject_cast<QPushButton*>(sender())->text();
-      ui->Display->setText(operand);
+    SearchDialog dig(this,ui->textEdit);
+    dig.exec();
 }
 
 
-void MainWindow::on_btnDelete_clicked()
+void MainWindow::on_actionReplace_triggered()
 {
-    operand=operand.left(operand.length()-1);
-    ui->Display->setText(operand);
+    ReplaceDialog dig(this,ui->textEdit);
+    dig.exec();
 }
 
-void MainWindow::on_btnC_clicked()
+
+void MainWindow::on_actionNew_triggered()
 {
-    if(operands.size()==0){
-        operands.push_back(operand);
-    }
-    if(operands.size()>0){
-        operands.clear();
-        opcodes.clear();
-        operand="";
-        ui->Display->setText(operand);
-    }
+    if(!userEditconfirm())
+        return;
+    filepath="";
+
+    ui->textEdit->clear();
+    this->setWindowTitle(tr("新建文本文件--编辑器"));
+
+    textchange=false;
 }
 
-void MainWindow::on_btnCE_clicked()
+
+void MainWindow::on_actionOpen_triggered()
 {
-    if(operands.size()==1&&opcodes.size()==1){
-        operand="";
-        ui->Display->setText(operand);
-    }
-    else if(operands.size()==0||operands.size()==1){
-        operands.clear();
-        operand="";
-        ui->Display->setText(operand);
+    if(!userEditconfirm())
+        return;
+
+    QString filename=QFileDialog::getOpenFileName(this,"打开文件",".",tr("Text files (*.txt);; All(*.*)"));
+    QFile file(filename);
+
+    if(!file.open(QFile::ReadOnly|QFile::Text)){
+        QMessageBox::warning(this,"..","打开文件失败");
+        return;
     }
 
+    filepath=filename;
+
+    QTextStream in(&file);
+    QString text=in.readAll();
+    ui->textEdit->insertPlainText(text);
+    file.close();
+    this->setWindowTitle(QFileInfo(filename).absoluteFilePath());
+
+    textchange=false;
 }
 
-void MainWindow::keyPressEvent(QKeyEvent *event)
+
+void MainWindow::on_actionSave_triggered()
 {
-   foreach(auto btnKey,digitBTNs.keys()){
-        if(event->key() == btnKey)
-            digitBTNs[btnKey]->animateClick();
-   }
-   foreach(auto BinarybtnKey,digitBinarys.keys()){
-       if(event->key() == BinarybtnKey)
-            digitBinarys[BinarybtnKey]->animateClick();
-   }
-   foreach(auto UnBinarybtnKey,digitUnBinarys.keys()){
-       if(event->key() == UnBinarybtnKey)
-           digitUnBinarys[UnBinarybtnKey]->animateClick();
-   }
-   foreach(auto ElsebtnKey,digitElse.keys()){
-       if(event->key() == ElsebtnKey){
-           digitElse[ElsebtnKey]->animateClick();
-       }
-   }
+    if(filepath==""){
+        QString filename=QFileDialog::getSaveFileName(this,"保存文件",".",tr("Text files (*.txt)"));
+
+        QFile file(filename);
+        if(!file.open(QFile::WriteOnly|QFile::Text)){
+            QMessageBox::warning(this,"..","打开保存文件失败");
+            return;
+        }
+        file.close();
+        filepath=filename;
+    }
+    QFile file(filepath);
+
+    if(!file.open(QFile::WriteOnly|QFile::Text)){
+        QMessageBox::warning(this,"..","打开保存文件失败");
+        return;
+    }
+
+    QTextStream out(&file);
+
+    QString text=ui->textEdit->toPlainText();
+    out<<text;
+    file.flush();
+    file.close();
+
+    this->setWindowTitle(QFileInfo(filepath).absoluteFilePath());
+    textchange=false;
 }
 
-QString MainWindow::calculation(bool *ok)
+
+void MainWindow::on_actionSaveAs_triggered()
 {
-    double result=0;
-    QString first=operands.front();
-    if(operands.size()==2&&opcodes.size()>0){
-        //取操作数
-        double operand1=operands.front().toDouble();
-        operands.pop_front();
-        double operand2=operands.front().toDouble();
-        operands.pop_front();
+    QString filename=QFileDialog::getSaveFileName(this,"保存文件",".",tr("Text files (*.txt)"));
 
-        //取操作符
-        QString op=opcodes.front();
-        opcodes.pop_front();
+    QFile file(filename);
+    if(!file.open(QFile::WriteOnly|QFile::Text)){
+        QMessageBox::warning(this,"..","打开保存文件失败");
+        return;
+    }
 
-        if(op=="+"){
-            result=operand1+operand2;
-        }
-        else if(op=="-"){
-            result=operand1-operand2;
-        }
-        else if(op=="×"){
-            result=operand1*operand2;
-        }
-        else if(op=="÷"){
-            result=operand1/operand2;
-        }
+    filepath=filename;
+    QTextStream out(&file);
+    QString text=ui->textEdit->toPlainText();
+    out<<text;
+    file.flush();
+    file.close();
 
-        operands.push_back(QString::number(result));
-        return QString::number(result);
-        ui->statusbar->showMessage(QString("calculation is in progress operand is %1,opcode is %2").arg(operands.size()).arg(opcodes.size()));
+    this->setWindowTitle(QFileInfo(filepath).absoluteFilePath());
+}
+
+
+void MainWindow::on_textEdit_textChanged()
+{
+    if(!textchange){
+        this->setWindowTitle("*"+this->windowTitle());
+        textchange=true;
+    }
+
+    statusLabel.setText("length"+QString::number(ui->textEdit->toPlainText().length())
+                        +"    lines:"+QString::number(ui->textEdit->document()->lineCount()));
+}
+
+bool MainWindow::userEditconfirm()
+{
+    QString path=(filepath!="")?filepath:"无标题.txt";
+    if(textchange){
+        QMessageBox msg(this);
+        msg.setIcon(QMessageBox::Question);
+        msg.setWindowTitle("....");
+        msg.setWindowFlag(Qt::Drawer);
+        msg.setText(QString("是否将更改保存到\n")+"\""+path+"\"?");
+        msg.setStandardButtons(QMessageBox::Yes|QMessageBox::No|QMessageBox::Cancel);
+        int r=msg.exec();
+        switch(r){
+        case QMessageBox::Yes:
+            on_actionSave_triggered();
+            break;
+        case QMessageBox::No:
+            textchange=false;
+            break;
+        case QMessageBox::Cancel:
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void MainWindow::on_actionUndo_triggered()
+{
+    ui->textEdit->undo();
+}
+
+
+void MainWindow::on_actionRedo_triggered()
+{
+    ui->textEdit->redo();
+}
+
+
+void MainWindow::on_actionCopy_triggered()
+{
+    ui->textEdit->copy();
+    ui->actionPaste->setEnabled(true);
+}
+
+
+void MainWindow::on_actionCut_triggered()
+{
+    ui->textEdit->cut();
+    ui->actionPaste->setEnabled(true);
+}
+
+
+void MainWindow::on_actionPaste_triggered()
+{
+    ui->textEdit->paste();
+}
+
+
+void MainWindow::on_textEdit_copyAvailable(bool b)
+{
+    ui->actionCopy->setEnabled(b);
+    ui->actionCut->setEnabled(b);
+}
+
+
+void MainWindow::on_textEdit_undoAvailable(bool b)
+{
+    ui->actionUndo->setEnabled(b);
+}
+
+
+void MainWindow::on_textEdit_redoAvailable(bool b)
+{
+    ui->actionRedo->setEnabled(b);
+}
+
+
+void MainWindow::on_actionLineWrap_triggered()
+{
+    QPlainTextEdit::LineWrapMode mode=ui->textEdit->lineWrapMode();
+    if(mode ==QPlainTextEdit::NoWrap){
+        ui->textEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+        ui->actionLineWrap->setChecked(true);
     }
     else{
-        ui->statusbar->showMessage(QString("operand is %1,opcode is %2").arg(operands.size()).arg(opcodes.size()));
-    }
-
-    return first;
-}
-
-void MainWindow::btnBinaryOperatorClicked()
-{
-    QString opcode=qobject_cast<QPushButton*>(sender())->text();
-    if(operand!=""){
-
-        operands.push_back(operand);
-
-        operand="";
-
-        opcodes.push_back(opcode);
-        QString result=calculation();
-        ui->Display->setText(result);
-
-    }
-    else if(operand==""&&operands.size()==1&&opcodes.size()==0){
-        opcodes.push_back(opcode);
-        QString result=calculation();
-        ui->Display->setText(result);
-    }
-}
-
-void MainWindow::btnUnaryOperatorClicked()
-{
-    if(operands.size()==0)
-        operands.push_back(operand);
-    if(operands.size()>0){
-        QString oper=operands.front();
-        operands.pop_front();
-        double result=oper.toDouble();
-        operand="";
-        QString op=qobject_cast<QPushButton*>(sender())->text();
-        if(op=="%")
-            result/=100.0;
-        else if(op == "1/x")
-            result=1/result;
-        else if(op=="x²")
-            result*=result;
-        else if(op=="²√x")
-            result=sqrt(result);
-        ui->Display->setText(QString::number(result));
-        operands.push_back(QString::number(result));
-    }
-}
-
-void MainWindow::on_btnAll_clicked()
-{
-    if(operand!=""){
-        operands.push_back(operand);
-        operand="";
-        QString result=calculation();
-        ui->Display->setText(result);
+        ui->textEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
+        ui->actionLineWrap->setChecked(false);
     }
 }
 
 
-void MainWindow::on_btnAddSub_clicked()
+void MainWindow::on_actionFontcolor_triggered()
 {
-    if(operands.size()==0&&operand!=""){
-        operands.push_back(operand);
+    QColor color=QColorDialog::getColor(Qt::black,this,"选择颜色");
+    if(color.isValid()){
+        ui->textEdit->setStyleSheet(QString("QPlainTextEdit{color :%1}").arg(color.name()));
     }
-    if(operands.size()>0){
-        QString oper=operands.front();
-        operands.pop_front();
-        if(oper.contains("-")){
-            double result=operand.toDouble();
-            ui->Display->setText(QString::number(result));
-            operands.push_back(QString::number(result));
+}
+
+
+void MainWindow::on_actionFontbackgroundcolor_triggered()
+{
+
+}
+
+
+void MainWindow::on_actionEditbackgroundcolor_triggered()
+{
+    QColor color=QColorDialog::getColor(Qt::black,this,"选择颜色");
+    if(color.isValid()){
+        ui->textEdit->setStyleSheet(QString("QPlainTextEdit{background-color :%1}").arg(color.name()));
+    }
+}
+
+
+void MainWindow::on_actionFont_triggered()
+{
+    bool ok=false;
+    QFont font=QFontDialog::getFont(&ok,this);
+    if(ok)
+        ui->textEdit->setFont(font);
+}
+
+
+void MainWindow::on_actionToolBar_triggered()
+{
+    bool visible=ui->toolBar->isVisible();
+    ui->toolBar->setVisible(!visible);
+    ui->actionToolBar->setChecked(!visible);
+}
+
+
+void MainWindow::on_actionStatusBar_triggered()
+{
+    bool visible=ui->statusbar->isVisible();
+    ui->statusbar->setVisible(!visible);
+    ui->actionStatusBar->setChecked(!visible);
+}
+
+
+void MainWindow::on_actionExit_triggered()
+{
+    if(userEditconfirm()){
+        exit(0);
+    }
+}
+
+
+void MainWindow::on_actionSelectAll_triggered()
+{
+    ui->textEdit->selectAll();
+}
+
+
+void MainWindow::on_textEdit_cursorPositionChanged()
+{
+    int col=0;
+    int ln=0;
+    int flag=-1;
+    int pos=ui->textEdit->textCursor().position();
+    QString text=ui->textEdit->toPlainText();
+    for(int i=0;i<pos;i++){
+        if(text[i]=='\n'){
+            ln++;
+            flag=1;
         }
-        else{
-            double result=operand.toDouble();
-            result=0-result;
-            ui->Display->setText(QString::number(result));
-            operands.push_back(QString::number(result));
-        }
     }
+    flag++;
+    col=pos-flag;
+    statusCursorLabel.setText("Ln"+QString::number(ln+1)+"    Col:"+QString::number(col+1));
+}
+
+
+
+
+
+void MainWindow::on_actionShowLineNumber_triggered(bool checked)
+{
+    ui->textEdit->hideLineNumberArea(!checked);
 }
 
